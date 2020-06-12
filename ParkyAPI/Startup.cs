@@ -3,21 +3,26 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ParkyAPI.Data;
 using ParkyAPI.IRepository;
 using ParkyAPI.ParkyMapper;
 using ParkyAPI.Repository;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace ParkyAPI
 {
@@ -36,29 +41,52 @@ namespace ParkyAPI
         {
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
             services.AddScoped<INationalParkRepository, NationalParkRepository>();
+            services.AddScoped<ITrailRepository, TrailRepository>();
             services.AddAutoMapper(typeof(ParkyMappings));
-            services.AddSwaggerGen(options =>
+            services.AddApiVersioning(options =>
             {
-                options.SwaggerDoc("ParkyOpenApiSpec", new Microsoft.OpenApi.Models.OpenApiInfo()
-                {
-                    Title = "Parky API",
-                    Version = "1",
-                    Description = "Sample API App ",
-                    Contact = new Microsoft.OpenApi.Models.OpenApiContact() 
-                    {
-                        Email = "challa@test.com",
-                        Name="Cha||a"
-                    }
-                });
-                var xmlCommentFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                var xmlCommentsFullPath = Path.Combine(AppContext.BaseDirectory, xmlCommentFile);
-                options.IncludeXmlComments(xmlCommentsFullPath);
+                options.AssumeDefaultVersionWhenUnspecified = true;
+                options.DefaultApiVersion = new ApiVersion(1, 0);
+                options.ReportApiVersions = true;
             });
+            services.AddVersionedApiExplorer(options => options.GroupNameFormat = "'v'VVV");
+            services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
+            services.AddSwaggerGen();
+            //services.AddSwaggerGen(options =>
+            //{
+            //    options.SwaggerDoc("ParkyOpenApiSpec", new Microsoft.OpenApi.Models.OpenApiInfo()
+            //    {
+            //        Title = "Parky API",
+            //        Version = "1",
+            //        Description = "API Documentation for NationalPark",
+            //        Contact = new Microsoft.OpenApi.Models.OpenApiContact()
+            //        {
+            //            Email = "challa@test.com",
+            //            Name = "Cha||a"
+            //        },
+            //        License = new Microsoft.OpenApi.Models.OpenApiLicense()
+            //    });
+            //    //options.SwaggerDoc("ParkyOpenApiSpecForTrails", new Microsoft.OpenApi.Models.OpenApiInfo()
+            //    //{
+            //    //    Title = "Parky API (Trails)",
+            //    //    Version = "1",
+            //    //    Description = "API Documentation for Trails",
+            //    //    Contact = new Microsoft.OpenApi.Models.OpenApiContact()
+            //    //    {
+            //    //        Email = "challa@test.com",
+            //    //        Name = "Cha||a"
+            //    //    },
+            //    //    License = new Microsoft.OpenApi.Models.OpenApiLicense()
+            //    //});
+            //    var xmlCommentFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            //    var xmlCommentsFullPath = Path.Combine(AppContext.BaseDirectory, xmlCommentFile);
+            //    options.IncludeXmlComments(xmlCommentsFullPath);
+            //});
             services.AddControllers();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IApiVersionDescriptionProvider provider)
         {
             if (env.IsDevelopment())
             {
@@ -69,9 +97,18 @@ namespace ParkyAPI
             app.UseSwagger();
             app.UseSwaggerUI(options =>
             {
-                options.SwaggerEndpoint("/swagger/ParkyOpenApiSpec/swagger.json", "Parky API");
+                foreach (var desc in provider.ApiVersionDescriptions) 
+                {
+                    options.SwaggerEndpoint($"/swagger/{desc.GroupName}/swagger.json", desc.GroupName.ToUpperInvariant());
+                }
                 options.RoutePrefix = "";
             });
+            //app.UseSwaggerUI(options =>
+            //{
+            //    options.SwaggerEndpoint("/swagger/ParkyOpenApiSpec/swagger.json", "Parky API");
+            //    //options.SwaggerEndpoint("/swagger/ParkyOpenApiSpecForTrails/swagger.json", "Parky API Trails");
+            //    options.RoutePrefix = "";
+            //});
             app.UseRouting();
 
             app.UseAuthorization();

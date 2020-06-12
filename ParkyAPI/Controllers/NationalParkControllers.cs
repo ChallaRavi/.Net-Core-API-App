@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
@@ -11,8 +12,10 @@ using ParkyAPI.Models.Dtos;
 
 namespace ParkyAPI.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v{version:apiVersion}/nationalparks")]
+    //[Route("api/[controller]")]
     [ApiController]
+    //[ApiExplorerSettings(GroupName = "ParkyOpenApiSpecForNP")]
     public class NationalParkController : ControllerBase
     {
         private readonly INationalParkRepository _nationalParkRepository;
@@ -94,7 +97,7 @@ namespace ParkyAPI.Controllers
                 ModelState.AddModelError("", $"Something went wrong while Saving Record{nationalParkObj.Name}");
                 return StatusCode(500, ModelState);
             }
-            return CreatedAtRoute("GetNationalPark" , new { nationalParkId=nationalParkObj.Id}, nationalParkObj);
+            return CreatedAtRoute("GetNationalPark" , new {version = HttpContext.GetRequestedApiVersion().ToString(), nationalParkId=nationalParkObj.Id}, nationalParkObj);
             
         }
     }
